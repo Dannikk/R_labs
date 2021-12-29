@@ -1,0 +1,37 @@
+---
+title: "Lab_2"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 13 вариант
+Используйте файл air_flows.csv
+Напишите функцию, которая создает именованный список, в котором имена - это названия городов, значения – общее количество пассажиров прибывших в города. Напишите функцию, которая по названию города выводит список тех городов, в которые осуществляются перевозки из этого города. 
+
+## Solution
+
+```{r echo=TRUE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+df = read.csv('air_flows.csv', encoding = "UTF-8")
+head(df)
+```
+```{r echo=TRUE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+summ_pass <- function(df) {
+grouped = aggregate(Перевезено.пассажиров ~ Город2, data=df, sum)
+res = as.vector(grouped$Перевезено.пассажиров)
+names(res) = as.vector(grouped$Город2)
+return (res)
+}
+summ_pass(df)
+```
+```{r echo=TRUE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+related_cities <- function(df, name) {
+return (as.vector(df[df$Город1 ==  name, ]$Город2))
+}
+related_cities(df, 'Москва')
+related_cities(df, 'Красноярск')
+```
