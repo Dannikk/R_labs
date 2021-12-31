@@ -6,7 +6,7 @@ output:
     df_print: kable
 ---
 
-Файл ExpImp.RData. Приведите данные к формату tidydata. Отобразите значения суммарного экспорта и импорта металлургической промышленности по регионам в виде столбчатой диаграммы [сгруппировав значения по названию региона]. Подпишите группы товаров, экспорт и импорт обозначьте разными цветами. Сделайте второй график, на котором значения экспорта и импорта расположите по разные стороны относительно оси x. Подпишите значения экспорта и импорта и долю, которую экспорт и импорт металлургической промышленности сотавляет в суммарном импорте и экспорте по регионам. 
+Файл ExpImp.RData. Приведите данные к формату tidydata. Отобразите значения суммарного экспорта и импорта по регионам в виде столбчатой диаграммы [сгруппировав значения по названию региона]. Экспорт и импорт обозначьте разными цветами. Сделайте второй график, на котором значения экспорта и импорта расположите по разные стороны относительно оси x. Подпишите величины экспорта и импорта. 
 
 ## Solution
 
@@ -60,7 +60,6 @@ plot <- ggplot(expimp2, aes(x=value, y=Region, fill=variable)) +
         axis.text.y = element_text(hjust=1, vjust = 0.4)) 
 ```
 
-
 Выведем получившуюся диаграмму
 
 ```{r echo=TRUE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE, fig.align="center", fig.width = 12, fig.height=16}
@@ -71,23 +70,29 @@ plot
 Для большей наглядности в этой гистограмме перейдем не к логарифму значений, как принято делать, а к корню 4 степени - теперь данные удобно сравнивать относительно друг друга, а близкие к нулю значения не дадут некорректные значения - величины стремящиеся к минус бесконечности.
 
 ```{r echo=TRUE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
-expimp$Суммарный_экспорт = -1*(expimp$Суммарный_экспорт^(1/4))
-expimp$Суммарный_импорт = expimp$Суммарный_импорт^(1/4)
-expimp3 <- tibble(melt(data.table(expimp), id.vars="Region"))
+logexpimp <- expimp
+logexpimp$Суммарный_экспорт = -1*(expimp$Суммарный_экспорт^(1/4))
+logexpimp$Суммарный_импорт = expimp$Суммарный_импорт^(1/4)
+expimp3 <- tibble(melt(data.table(logexpimp), id.vars="Region"))
 ```
 
-Регионов много, чтобы все уместить на горизонатальной гистограмме - поменяем оси X и Y местами.
+Регионов много, чтобы все уместить на горизонатальной гистограмме - поменяем оси X и Y местами. Также добавим подписи к столбцам в абсолютных величинах экспорта/импорта.
 ```{r echo=TRUE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
 plot2 <- ggplot(expimp3, aes(x=value, y=Region, fill=variable)) +
-  geom_bar(stat='identity', position='dodge') + xlab("Регион") + ylab("Объем") +
-  ggtitle("Объем экспорта по регионам") +
-  scale_fill_discrete(name = "Экспорт/Импорт") + theme(text = element_text(size=15),
+  geom_bar(stat='identity') + xlab("Регион") + ylab("Объем") +
+  ggtitle("Объем экспорта по регионам") + 
+  geom_text(aes(label=ifelse(variable=="Суммарный_экспорт", 
+                             expimp$Суммарный_экспорт, 
+                             expimp$Суммарный_импорт), 
+                position = ifelse(variable=="Суммарный_экспорт", 0, 1))) +
+  scale_fill_discrete(name = "Экспорт/Импорт") + 
+  theme(text = element_text(size=15),
         axis.text.x = element_text(angle=0, hjust=0.5, vjust = 0.5),
         axis.text.y = element_text(hjust=1, vjust = 0.4))
 ```
 
 Выведем получившуюся диаграмму
 
-```{r echo=TRUE, error=FALSE, fig.align="center", fig.height=16, fig.width=14, message=FALSE, warning=FALSE, include=TRUE}
+```{r echo=TRUE, error=FALSE, fig.align="center", fig.height=18, fig.width=14, message=FALSE, warning=FALSE, include=TRUE}
 plot2
 ```

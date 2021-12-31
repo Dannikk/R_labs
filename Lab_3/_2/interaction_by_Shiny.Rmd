@@ -1,0 +1,124 @@
+---
+title: "Lab 3_3. Interaction by Shiny"
+author: Данилов Никита
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Solution
+
+Предположим, что особый интерес анализа данных состоит в сравнении объемов экспорта/импорта некоторого множества регионов. 
+
+С помощью данного инструмента Вы сможете это сделать! Просто выберите интересующие Вас регионы из списка или воспользуйтесь поиском в правом верхнем углу.
+
+NB: на мониторах с разрешением выше 1280х720 возможны проблемы в силу того, что размеры некоторых полей задаются в пикселях. Для решения этой проблемы предлагается настроить скалирующий множитель 'SCALE', который Вы можете найти во втором чанке, следющим сразу за этим сообщением.
+
+<!-- Загрузим необходимые библиотеки и исходные данные -->
+```{r echo=FALSE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(magrittr)
+library(readr)
+library(tidyr)
+library(data.table)
+library(repr)
+
+SCALE = 1
+
+```
+
+<!-- Преобразуем данные к формату tidydata. А такаже избавимся от совокупных значений -- Российская федерация, округа и т.п. -->
+```{r echo=FALSE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+load("ExpImp.RData")
+expimp = tibble(ExpImp[-grep('Российская Федерация|округ|в том числе:', ExpImp$Регион),])
+expimp[2:13] = lapply(expimp[2:13], function(x) as.numeric(sub('-', '0.', x)))
+```
+
+
+<!-- Выделим столбцы с импортом и экспортом -->
+```{r echo=FALSE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+exp <- grep('.*Экспорт', colnames(expimp))
+imp <- grep('.*Импорт', colnames(expimp))
+expimp <- expimp %>%
+    mutate(Суммарный_экспорт = select(., exp) %>% rowSums(na.rm = TRUE)) %>%
+    mutate(Суммарный_импорт = select(., imp) %>% rowSums(na.rm = TRUE))
+colnames(expimp)[1] <- "Region"
+expimp <- expimp[c(1, 14, 15)]
+```
+
+```{r echo=FALSE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+get_figure <- function(data){
+  data$Суммарный_экспорт = -1*data$Суммарный_экспорт
+  expimp3 <- tibble(melt(data.table(data[c(1, 2, 3)]), id.vars="Region"))
+  figure <- ggplot(expimp3, aes(x=value, y=Region, fill=variable)) +
+    geom_bar(stat='identity') + xlab("Регион") + ylab("Объем") +
+    ggtitle("Объем экспорта по регионам") +
+    scale_fill_discrete(name = "Экспорт/Импорт") + theme(text = element_text(size=15),
+          axis.text.x = element_text(angle=0, hjust=0.5, vjust = 0.5),
+          axis.text.y = element_text(hjust=1, vjust = 0.4))
+  return(figure)
+}
+```
+
+```{r echo = FALSE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+library(shiny)
+library(shinythemes)
+library(DT)
+
+  ui = fluidPage(
+      DT::dataTableOutput('x1'),
+      hr(),
+      plotOutput("plot"))
+  
+  server = function(input, output) {
+    # create a character vector of shiny inputs
+    shinyInput = function(FUN, len, id, ...) {
+      inputs = character(len)
+      for (i in seq_len(len)) {
+        inputs[i] = as.character(FUN(paste0(id, i), label = NULL, ...))
+      }
+      inputs
+    }
+    
+    # obtain the values of inputs
+    shinyValue = function(id, len) {
+      unlist(lapply(seq_len(len), function(i) {
+        value = input[[paste0(id, i)]]
+        if (is.null(value)) NA else value
+      }))
+    }
+    
+    # a sample data frame
+    res = data.frame(
+      Регион = expimp$Region,
+      Экспорт = expimp$Суммарный_экспорт,
+      Импорт = expimp$Суммарный_импорт,
+      Включить = shinyInput(checkboxInput, nrow(expimp), 'Включить', value = FALSE),
+      stringsAsFactors = FALSE
+    )
+    
+    # render the table containing shiny inputs
+    output$x1 = DT::renderDataTable(
+      res, server = FALSE, escape = FALSE, selection = 'none', 
+      options = list(pageLength = 5, 
+      preDrawCallback = JS('function(){Shiny.unbindAll(this.api().table().node()); }'),
+        drawCallback = JS('function() { Shiny.bindAll(this.api().table().node()); } ')
+      )
+    )
+
+    output$plot = renderPlot({
+      expimp$selected <- shinyValue('Включить', nrow(expimp))
+      expimp <- expimp %>% filter(expimp$selected == TRUE)
+      get_figure(expimp)}, width=SCALE*850, height=SCALE*500)
+  }
+```
+```{r echo = FALSE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+shinyApp(ui, server, options=list(height = SCALE*1100))
+```
+
+
