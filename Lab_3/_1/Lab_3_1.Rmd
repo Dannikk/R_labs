@@ -1,0 +1,52 @@
+---
+title: "Lab 3.1"
+author: "Данилов Никита"
+output:
+  html_document:
+    df_print: kable
+  pdf_document: default
+---
+## Task
+
+Файл trades.RData. Объедините таблицы в одну, уберите столбец с территорией торговли, т.к. там только Евросоюз, оставим только строки с экспортом и импортом, вынесете данные по экспорту и импорту в отдельные переменные. Постройте линейный график изменения экспорта по годам обозначив разные группы экспортируемых товаров разным цветом. Подпишите значения на графике. Отрегулируйте местоположение подписей так, чтобы рисунок был максимально наглядным. Придумайте новые названия графика и осей.
+
+## Solution
+
+```{r echo=FALSE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+library(dplyr)
+library(tibble)
+library(ggplot2)
+load('trades.RData')
+```
+
+Смерджим таблицы и удалим территорию торговли
+```{r echo=TRUE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+df <- data.frame(Reduce(function(x, y) rbind(x, y), trades))
+df$geo = NULL
+head(df)
+```
+Посчитаем необходимые значения для импорта и экспорта и зададим графики
+
+```{r echo=TRUE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+df <- tibble(df) %>% group_by(time)
+export <- df %>% filter(indic_et=='Exports in million of ECU/EURO')
+import <- df %>% filter(indic_et=='Imports in million of ECU/EURO')
+exp <- aggregate(export$values, by=list(export$sitc06, export$time), sum)
+imp <- aggregate(import$values, by=list(export$sitc06, export$time), sum)
+colnames(exp) <- c("Group", "Year", "Value")
+colnames(imp) <- c("Group", "Year", "Value")
+
+beauty_plot <- function(data, name){
+  ggplot(data, aes(Year, Value, colour = Group, label=Value)) +
+  geom_point() + geom_line() + geom_label(size = 3, vjust = 1,
+  aes(label=Value, fill = factor(Value)), colour = "white", fontface = "bold",
+  show.legend=FALSE) + ggtitle(paste("Объемы:", name, "за 2008-2019гг.")) +
+  xlab("Год") + ylab(paste("Объем:", name)) + theme(text = element_text(size=20),
+  axis.text.x = element_text(angle=90, hjust=1))
+}
+```
+
+```{r echo=TRUE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE, fig.align="center", fig.width = 14, fig.height=10}
+beauty_plot(imp, "импорт")
+beauty_plot(exp, "экспорт")
+```

@@ -1,0 +1,93 @@
+---
+title: "Lab 3.2"
+author: Данилов Никита
+output: 
+  html_document:
+    df_print: kable
+---
+
+Файл ExpImp.RData. Приведите данные к формату tidydata. Отобразите значения суммарного экспорта и импорта металлургической промышленности по регионам в виде столбчатой диаграммы [сгруппировав значения по названию региона]. Подпишите группы товаров, экспорт и импорт обозначьте разными цветами. Сделайте второй график, на котором значения экспорта и импорта расположите по разные стороны относительно оси x. Подпишите значения экспорта и импорта и долю, которую экспорт и импорт металлургической промышленности сотавляет в суммарном импорте и экспорте по регионам. 
+
+## Solution
+
+Загрузим необходимые библиотеки и исходные данные
+```{r echo=FALSE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(magrittr)
+library(readr)
+library(tidyr)
+library(data.table)
+library(repr)
+
+```
+
+Преобразуем данные к формату tidydata. А такаже избавимся от совокупных значений -- Российская федерация, округа и т.п.
+```{r echo=TRUE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+load("ExpImp.RData")
+expimp = tibble(ExpImp[-grep('Российская Федерация|округ|в том числе:', ExpImp$Регион),])
+expimp[2:13] = lapply(expimp[2:13], function(x) as.numeric(sub('-', '0.', x)))
+```
+
+
+Выделим столбцы с импортом и экспортом
+```{r echo=TRUE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+exp <- grep('.*Экспорт', colnames(expimp))
+imp <- grep('.*Импорт', colnames(expimp))
+expimp <- expimp %>%
+    mutate(Суммарный_экспорт = select(., exp) %>% rowSums(na.rm = TRUE)) %>%
+    mutate(Суммарный_импорт = select(., imp) %>% rowSums(na.rm = TRUE))
+head(expimp)
+```
+
+
+Изменим имя столбца для удобства и оставим только необходимые столбцы. Далее соединим два последних столбца в один и добавим тип значения: импорт или экспорт.
+
+Строим стобчатую диаграмму с показателями импорта и экспорта по регионам.
+
+```{r echo=TRUE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE, }
+colnames(expimp)[1] <- "Region"
+expimp <- expimp[c(1, 14, 15)]
+head(expimp)
+expimp2 <- tibble(melt(data.table(expimp), id.vars="Region"))
+head(expimp2)
+plot <- ggplot(expimp2, aes(x=value, y=Region, fill=variable)) +
+  geom_bar(stat='identity', position='dodge') + xlab("Регион") + ylab("Объем") +
+  ggtitle("Объем экспорта по регионам") + 
+  scale_fill_discrete(name = "Экспорт/Импорт") + theme(text = element_text(size=16),
+        axis.text.x = element_text(angle=0, hjust=0.5, vjust = 0.5),
+        axis.text.y = element_text(hjust=1, vjust = 0.4)) 
+```
+
+
+Выведем получившуюся диаграмму
+
+```{r echo=TRUE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE, fig.align="center", fig.width = 12, fig.height=16}
+plot
+```
+
+Построим другую столбчатую диаграмму, у которой значения находятся по разные стороны относительно оси x. 
+Для большей наглядности в этой гистограмме перейдем не к логарифму значений, как принято делать, а к корню 4 степени - теперь данные удобно сравнивать относительно друг друга, а близкие к нулю значения не дадут некорректные значения - величины стремящиеся к минус бесконечности.
+
+```{r echo=TRUE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+expimp$Суммарный_экспорт = -1*(expimp$Суммарный_экспорт^(1/4))
+expimp$Суммарный_импорт = expimp$Суммарный_импорт^(1/4)
+expimp3 <- tibble(melt(data.table(expimp), id.vars="Region"))
+```
+
+Регионов много, чтобы все уместить на горизонатальной гистограмме - поменяем оси X и Y местами.
+```{r echo=TRUE, error=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+plot2 <- ggplot(expimp3, aes(x=value, y=Region, fill=variable)) +
+  geom_bar(stat='identity', position='dodge') + xlab("Регион") + ylab("Объем") +
+  ggtitle("Объем экспорта по регионам") +
+  scale_fill_discrete(name = "Экспорт/Импорт") + theme(text = element_text(size=15),
+        axis.text.x = element_text(angle=0, hjust=0.5, vjust = 0.5),
+        axis.text.y = element_text(hjust=1, vjust = 0.4))
+```
+
+Выведем получившуюся диаграмму
+
+```{r echo=TRUE, error=FALSE, fig.align="center", fig.height=16, fig.width=14, message=FALSE, warning=FALSE, include=TRUE}
+plot2
+```
